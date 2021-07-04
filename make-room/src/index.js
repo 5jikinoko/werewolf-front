@@ -13,27 +13,56 @@ function RoomMake () {
 
   //作成ボタンのクリック時動作
   const hundleClickMake = () => {
-    const fd = new FormData();
-    fd.set("roomName", setRoomName);
-    fd.set("peopleLimid", setPeopleLimid);
-    fd.set("passwordExsit", setPasswordExsit);
-    fd.set("password", setPassword);
-    fd.set("intro", setIntro);
+    var i = 0;
+    if (roomName === "") {
+      alert("部屋の名前を入力してください");
+      i = 1;
+    }
+    if (roomName.length > 10) {
+      alert("部屋の名前は文字以内にしてください");
+      i = 1;
+    }
+    if (passwordExsit === true) {
+      if(passwordExsit === ""){
+        alert("パスワードを入力してください");
+        i = 1;
+      }
+      if(passwordExsit.length >= 16){
+        alert("パスワードを15文字以内にしてください");
+        i = 1;
+      }
+    }
+    if(intro.length >= 1000){
+      alert("紹介分が長すぎます");
+      i = 1;
+    }
+    
+    if(i === 1){
+      return;
+    }
+    else{
+      let fd = new FormData();
+      fd.set("roomName", setRoomName);
+      fd.set("peopleLimid", setPeopleLimid);
+      fd.set("passwordExsit", setPasswordExsit);
+      fd.set("password", setPassword);
+      fd.set("intro", setIntro);
 
-    //サーバに送信
-    fetch("/gameSettings-registry", {
+      //サーバに送信
+      fetch("/gameSettings-registry", {
       method: "PUT",
       body: fd
-    })
-    .then((response) => {
-      const status = response.status;
-      console.log(status);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-    //チャットルームに移動
-    location.href="url";
+      })
+      .then((response) => {
+        const status = response.status;
+        console.log(status);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+      //チャットルームに移動
+      location.href="url";
+    }
   }
   
   //前のページに戻る
@@ -93,8 +122,8 @@ function RoomMake () {
               </div>
             </div>
             <div className="Buttons">
-              <button className="box3" onClick={hundleClickMake} type="button">OK</button>
-              <button className="box3" onClick ={hundleClickBack} type="button">キャンセル</button>
+              <button className="box3" onClick={ () => hundleClickMake()} type="button">OK</button>
+              <button className="box3" onClick ={ () => hundleClickBack()} type="button">キャンセル</button>
             </div>
           </div>
         </div>
