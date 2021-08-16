@@ -1,3 +1,7 @@
+/*
+URLパラメータから入ろうとしている部屋のIDを取得。その部屋の情報を提示して、あいことばがあるなら、あいことばを入力してから参加ボタンを押してもらい、参加に成功したらW6ゲーム・チャット画面に遷移する。
+成松
+*/
 import React from "react";
 import ReactDOM from "react-dom";
 import './index.css';
@@ -38,7 +42,7 @@ class Board extends React.Component {
     }
     
     componentDidMount(){
-      /*
+      
       const roomID = getParam("roomID");
       console.log("roomID=" + roomID);
       let URL
@@ -62,11 +66,13 @@ class Board extends React.Component {
               error
             });
           }
-        )*/
+        )
+        /*
         this.setState({
           isLoaded: true,
           items: {roomID: 1, hostName: "ホストの名前", roomName: "人狼部屋", maxMember: 10, nowMember: 5, existPass: true, introduction:"吾輩は猫である。名前はまだ無い。どこで生れたかとんと見当がつかぬ。何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している。吾輩はここで始めて人間というものを見た。しかもあとで聞くとそれは書生という人間中で一番獰悪な種族であったそうだ。この書生というのは時々我々を捕えて煮て食うという話である。"}
         });
+        */
     }
     
     //参加ボタンクリック時
@@ -89,8 +95,19 @@ class Board extends React.Component {
                 window.location.href = "/game-chat"
             } else if(status === 401) {
               alert("あいことばが違います");
+              this.setState({
+                pass: ""
+              });
             } else if (status === 466) {
               alert("プロフィール登録をしてください");
+            } else if (status === 477) {
+              alert("その他エラー");
+            } else if (status === 487) {
+              alert("プレイヤーネームが部屋にいるプレイヤーと被っています");
+            } else if (status === 488) {
+              alert("アイコンが部屋にいるプレイヤーと被っています");
+            } else if (status === 489) {
+              alert("プレイヤーネームとアイコンが部屋にいるプレイヤーと被っています");
             } else if (status === 497) {
               alert("UUIDが存在しない");
             } else if (status === 498) {

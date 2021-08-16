@@ -1,3 +1,7 @@
+/*
+プロフィール編集をする
+工藤
+*/
 import React, { useEffect } from "react";
 import Modal, { setAppElement } from "react-modal";
 
@@ -12,7 +16,7 @@ const getCookie = (key) => {
         for (let i = 0; i < allCookies.length; ++i) {
             const cookie = allCookies[i].split("=");
             if (cookie[0] === key) {
-                result = decodeURI( cookie[1]);
+                result = decodeURIComponent( cookie[1]);
                 break;
             }
         }
