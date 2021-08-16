@@ -1,3 +1,7 @@
+/*/
+部屋一覧を取得して参加したい部屋を選んでもらい、その部屋のW4部屋の参加決定・あいことば入力画面に遷移する
+成松
+*/
 import React from "react";
 import ReactDOM from "react-dom";
 import './index.css';
