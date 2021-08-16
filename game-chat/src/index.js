@@ -1,60 +1,40 @@
+/*
+他のM6のモジュールが表示するものをまとめる。webソケットのコネクションを確立して、メッセージを受信したら　に渡す。ゲームの情報と、自分のステータスもフェーズごとにgetする。
+工藤
+*/
 import ReactDOM from 'react-dom';
 import './index.css';
 //import React from 'react';
 import React, { Component, useEffect, useRef, useState, Fragment} from "react";
-
+import ChatArea from './chat';
+import UsersStatus from './users-status';
+import Action from './action';
+import ShowPhase from './show-phase';
+import MenuModal from './menu-modal';
 
 //import { render } from 'react-dom';
 
-class ChatForm extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = {
-      text: "",
-    }
-  }
+const testJason = [{userName: "aa", icon: 1}, {userName: "bb", icon: 2}, {userName: "cc", icon: 3}]
 
-  handleButton(inputText) {
-    this.setState({ text: "" });
-    this.props.onClick(inputText);
-    //console.log("handlebutton" + inputText + this.state.text);
-  }
-  render() {
-    const inputText = this.state.text;
-    return (
-      <form  className="chat-form">
-        <textarea onChange={(event) => {this.setState({ text: event.target.value })}} value={inputText} className="chat-input" id="input-chat" rows="5" warp="hard"></textarea>
-        <button onClick={() => this.handleButton(inputText)} className="chat-button" type="button" >一般チャットで<br/>発言</button>
-      </form>
-    )
-  }
-}
+ const testfaunc = () => {
+   let obj = {};
+   testJason.map( t => {
+    obj[t.userName] = t.icon
+   });
+   console.log(obj);
+   testJason.map(t => {
+     console.log(obj[t.userName]);
+   })
+   return obj;
+ }
 
-function Chat(props) {
-  //render() {
-    return (
-      <div className="chat-gutter">
-        <div className="chat-contents-left">
-          <img src='https://www.shibaura-it.ac.jp/touch-icon.png' className="user-icon"/>
-        </div>
-        <div className="chat-contents-right">
-          <div className="user-name">
-              {props.userName}
-          </div>
-          <div className="chat-text">
-              {props.text}
-          </div>
-        </div>
-      </div>
-  );//}
-}
 
-function getCookie(key) {
+const getCookie = (key) => {
   let result = null;
   const plainCookie = document.cookie;
   if(plainCookie !== "") {
     let allCookies = plainCookie.split("; ");
-    for (let i = 0; i < allCookies; ++i) {
+    for (let i = 0; i < allCookies.length; ++i) {
       const cookie = allCookies[i].split("=");
       if (cookie[0] === key) {
         result = cookie[1];
@@ -65,167 +45,323 @@ function getCookie(key) {
   return result;
 }
 
-const Chats = (props) => {
-  const chatsEl = useRef(null);
-  const messages = props.messages;
 
-  useEffect(() => {
-    chatsEl.current.scrollIntoView();
-  }, [messages.length]);
-
-  return (
-    <div className="scroll-area" ref={chatsEl}>
-      {messages.map( (message) => (
-        <Chat userName={message.userName} text={message.text} />
-      ))}
-    </div>
-  );
-}
-
-class ChatArea extends React.Component {
-  
+class App extends React.Component {
   constructor(props) {
-    super(props)
+    super(props);
     this.state = {
-      messages: [
-      ],
-      roomID: getCookie("roomID"),
+      generalMessages: [],
+      werewolfMessages: [],
+      graveMessages: [],
+      actionLog: [],
+      icon: getCookie("icon"),
+      //Todo
       UUID: getCookie("UUID"),
+      //UUID: "46453234-dd1f-4ecc-abb7-ecfca363689f",
+      userName: getCookie("userName"),
       ws: null,
+      channel: 0,
+      chatPermission: {
+        generalChatWritingPermission: true,
+        werewolfChatReadingPermission: true,
+        werewolfChatWritingPermission: false,
+        graveChatReadingPermission: true,
+        graveChatWritingPermission: false
+      },
+      myRole: "",
+      alive: true,
+      statusList :[],
+      nameIconDict :{},
+      nextPhaseTime: 0,
+      nowPhase: 0,
+      day: 1,
+      completeAction: true,
+      gameSettings: {
+        discussionTime: 180, votingTime: 60, nightTime: 120, willTime: 60,
+        tieVoteOption: 0, werewolfChatSwitch: 1, firstNightSee: 2,
+        canSeeMissingPosition: false, isSecretBallot: false, 
+        canContinuousGuard: false, isRandomStealing: true, isOneNight:false
+      },
+      roleBreakdown: {
+        villagersNum: 5,
+        seersNum: 1,
+        necromancersNum: 1,
+        knightsNum: 1,
+        huntersNum: 0,
+        blackKnightsNum: 0,
+        freemasonariesNum: 0,
+        bakersNum: 1,
+        werewolvesNum: 2,
+        madmenNum: 0,
+        traitorsNum: 0,
+        foxSpiritsNum: 0,
+        foolsNum: 0,
+        phantomThievesNum: 0,
+      },
     };
-    this.handleButton = this.handleButton.bind(this);
+    this.switchChannel = this.switchChannel.bind(this);
+    this.sendMessage = this.sendMessage.bind(this);
+    this.getGameInfo = this.getGameInfo.bind(this);
+    this.getMyStatus = this.getMyStatus.bind(this);
+    this.getGameSettings = this.getGameSettings.bind(this);
+    this.makeDict = this.makeDict.bind(this);
+    this.setSettings = this.setSettings.bind(this);
+    this.setCompleteAction = this.setCompleteAction.bind(this);
   }
 
-
   componentDidMount() {
+    //let ws = new WebSocket("ws://160.16.141.77:51000/websocket");
     let ws = new WebSocket("ws://160.16.141.77:51000/websocket");
-    //let ws = new WebSocket("ws://localhost:7000/websocket");
+    
     ws.onopen = () => {
       console.log('connected')
       this.setState({ ws: ws });
     }
     ws.onmessage = (m) => {
-      const message = JSON.parse(m.data);
-      let messages = this.state.messages.slice();
-      const newMessage = {userName: message.userName, text: message.text};
-      this.setState({
-      messages: messages.concat(newMessage)
-      })
+      const jsonMessage = JSON.parse(m.data);
+      const channel = jsonMessage.channel;
+      //他プレイヤーからのチャットならば対応するチャットに追加
+      if (channel === 0) {
+        const messages = this.state.generalMessages.slice();
+        const newMessage = {userName: jsonMessage.userName, text: jsonMessage.text};
+        this.setState({
+          generalMessages: messages.concat(newMessage)
+        });
+      } else if (channel === 1) {
+        const messages = this.state.werewolfMessages.slice();
+        const newMessage = {userName: jsonMessage.userName, text: jsonMessage.text};
+        this.setState({
+          werewolfMessages: messages.concat(newMessage)
+        });
+      } else if (channel === 2) {
+        const messages = this.state.graveMessages.slice();
+        const newMessage = {userName: jsonMessage.userName, text: jsonMessage.text};
+        this.setState({
+          graveMessages: messages.concat(newMessage)
+        });
+      }//GMからのメッセージ 
+      else if (channel === -1) {
+        const messages = this.state.generalMessages.slice();
+        const newMessage = {userName: "GM", text: jsonMessage.text};
+        this.setState({
+          generalMessages: messages.concat(newMessage)
+        });
+      } else if (channel === -2) {
+        const messages = this.state.generalMessages.slice();
+        const newMessage = {userName: "GM", text: jsonMessage.text};
+        this.setState({
+          generalMessages: messages.concat(newMessage)
+        });
+
+        const getGameInfo = this.getGameInfo;
+        const getMyStatus = this.getMyStatus;
+
+        getMyStatus();
+        console.log("処理2完了");
+        getGameInfo();
+        console.log("処理1完了");
+      } else if (channel === -3) {
+        const messages = this.state.actionLog.slice();
+        const newMessage = jsonMessage.text;
+        this.setState({
+          actionLog: messages.concat(newMessage)
+        });
+        console.log(messages.concat(newMessage));
+      } else if (channel == -4) {
+        const messages = this.state.generalMessages.slice();
+        const newMessage = {userName: "GM", text: jsonMessage.text};
+        this.setState({
+          generalMessages: messages.concat(newMessage)
+        });
+        this.getGameSettings();
+      } else if (channel === -666) {
+        alert("部屋主によって部屋が解散しました");
+        window.location.href = "/search-room";
+      }
     }
 
     ws.onclose = () => {
-      const messages = this.state.messages.slice();
-      const newMessage = {userName: "システム", text: "通信が止まりました"};
-      this.setState({
-        messages: messages.concat(newMessage)
-      });
+      alert("通信が止まりました");
     }
+
+    this.getGameSettings();
+  }
+
+  getGameInfo() {
+    fetch("http://160.16.141.77:51000/game-info")
+    .then(response => response.json())
+    .then( json => {
+      console.log(json);
+      const nowPhase = json.nowPhase;
+      this.setState({
+        statusList: json.statusList,
+        nextPhaseTime: new Date(json.nextPhaseTime),
+        nowPhase: nowPhase,
+        day: json.day
+      });
+      if (nowPhase === 1 || nowPhase === 3 || nowPhase === 5) {
+        this.setState({
+          completeAction: false
+        })
+      }
+      this.makeDict(json.statusList);
+    }).then(() => {
+      this.switchChannel(0);
+      console.log("処理3完了");
+    })
+  }
+
+  makeDict(statusList) {
+    const dict = {};
+    statusList.map( t => {
+      dict[t.name] = t.icon
+    });
+    dict["GM"] = "GM";
+    console.log("make dict!");
+    console.log(dict);
+    this.setState({
+      nameIconDict: dict
+    });
+  }
+
+  getMyStatus() {
+    fetch("http://160.16.141.77:51000/my-status")
+    .then(response => response.json())
+    .then( json => {
+      this.setState({
+        myRole: json.status.role,
+        alive: json.status.alive,
+        chatPermission: json.chatPermission
+      });
+      console.log(json);
+    });
+  }
+
+  getGameSettings() {
+    fetch("http://160.16.141.77:51000/gameSettings")
+    .then(response => response.json())
+    .then( json => {
+      if (json.gameSettings !== null && json.roleBreakdown !== null) {
+        const gameSettings = json.gameSettings;
+        const roleBreakdown = json.roleBreakdown;
+        this.setState({
+          gameSettings: gameSettings,
+          roleBreakdown: roleBreakdown,
+        });
+      } else {
+        const gameSettings = {
+          discussionTime: 180, votingTime: 60, nightTime: 120, willTime: 60,
+          tieVoteOption: 0, werewolfChatSwitch: 1, firstNightSee: 2,
+          canSeeMissingPosition: false, isSecretBallot: false, 
+          canContinuousGuard: false, isRandomStealing: true, isOneNight:false
+        }
+        const roleBreakdown = {
+          villagersNum: 5,
+          seersNum: 1,
+          necromancersNum: 1,
+          knightsNum: 1,
+          huntersNum: 0,
+          blackKnightsNum: 0,
+          freemasonariesNum: 0,
+          bakersNum: 1,
+          werewolvesNum: 2,
+          madmenNum: 0,
+          traitorsNum: 0,
+          foxSpiritsNum: 0,
+          foolsNum: 0,
+          phantomThievesNum: 0,
+        }
+        console.log(gameSettings);
+        this.setState({gameSettings: gameSettings, roleBreakdown: roleBreakdown});
+      }
+    })
   }
 
   componentWillUnmount() {
     const ws = this.state.ws;
-    if (ws == null) return;
-    const message = {type: -1, UUID: this.UUID, text: ""}
+    if (ws.readyState === WebSocket.CLOSED) return;
+    const message = {channel: -1, userUUID: this.state.UUID, text: ""}
     const jsonMessage = JSON.stringify(message);
     ws.send(jsonMessage);
     ws.close();
   }
 
-  displayMessage(m) {
-    const message = JSON.parse(m.data);
-    let messages = this.state.messages.slice();
-    const newMessage = {userName: message.userName, text: message.text};
+  setSettings(gameSettings, roleBreakdown) {
     this.setState({
-      messages: messages.concat(newMessage)
-    })
-  }
-
-  
-  /*constructor(props) {
-    super(props);
-    this.state = {
-      error: null,
-      isLoaded: false,
-      items: []
-    };
-  }*/
-  
-/*  componentDidMount() {
-    fetch("https://jsondata.okiba.me/v1/json/OSvQA210610084219")
-      .then(res => res.json())
-      .then(json => {
-          this.setState({
-            isLoaded: true,
-            items: json.rates
-          });
-      })
-      .catch(error => {
-        this.setState({
-          isLoaded: false,
-          error: error
-        });
-        console.error(error);
-      });
-  }*/
-  
-  sendMessage() {
-    const ws = this.state.ws;
-    const message = {UUID: this.state.UUID, type: 0, text: this.state.messages};
-    const jsonMessage = JSON.stringify(message);
-    ws.send(jsonMessage);
-  }
-
-  handleButton(inputText) {
-    const ws = this.state.ws;
-    const message = {type: 1, userName: "al19009", text: inputText};
-    const jsonMessage = JSON.stringify(message);
-    ws.send(jsonMessage);
-    /*
-    let newMessages = this.state.messages.slice();
-    const newMessage = {userName: "al19009", text: inputText};
-    console.log("button" + inputText);
-    this.setState({
-      messages: newMessages.concat([newMessage]),
+      roleBreakdown: roleBreakdown,
+      gameSettings: gameSettings
     });
-    */
+  }
+
+  setCompleteAction(isFinish) {
+    this.setState({
+      completeAction: isFinish
+    });
+  }
+
+  sendMessage(text) {
+    const ws = this.state.ws;
+    //接続が内なら送信しない
+    if (ws === null || ws.readyState === WebSocket.CLOSED) return false;
+
+    const message = {userUUID: this.state.UUID, channel: this.state.channel, text: text};
+    const jsonMessage = JSON.stringify(message);
+    ws.send(jsonMessage);
+    return true;
+  }
+
+  switchChannel(c) {
+    console.log("switchChannel:" + c);
+    const chatPermission = this.state.chatPermission;
+    //一般チャットに切り替え
+    if (c === 0) {
+      this.setState({
+        channel: 0
+      });
+    }//人狼チャットに切り替え
+    else if (c === 1 && chatPermission.werewolfChatReadingPermission) {
+      this.setState({
+        channel: 1
+      });
+    }//墓場チャットに切り替え
+    else if (c === 2 && chatPermission.graveChatReadingPermission) {
+      this.setState({
+        channel: 2,
+      });
+    }
   }
 
   render() {
-    //const { isLoaded, items } = this.state;
-    /*if (!isLoaded) {
-      return <h3> Loading </h3>;
-    } else {*/
-      //const mess = '騎士さん!私を護衛して'
-      //console.log("render ChatArea");
-      const messages = this.state.messages;
-
-      return (
-        <div className="chat-area">
-          <div className="chat-container">
-            <Chats messages={this.state.messages}/>
-          </div>
-          <ChatForm onClick={this.handleButton} />
-        </div>
-      );
-  }
-}
-
-class App extends React.Component {
-
-  render() {
+    const channel = this.state.channel;
+    let messages;
+    if (channel === 0) {
+      messages = this.state.generalMessages;
+    } else if (channel === 1) {
+      messages = this.state.werewolfMessages
+    } else if (channel === 2) {
+      messages = this.state.graveMessages;
+    } else {
+      console.log("エラー　channel:" + channel);
+    }
     return(
       <div className="main">
         <div className="left-bar">
-          他プレイヤー情報
+          <UsersStatus users={this.state.statusList} />
         </div>
         <div className="center-area">
           <div className="center-header">
-            一日目夜　議論時間　03:21　4/10
+            <ShowPhase nextPhaseTime={this.state.nextPhaseTime} nowPhase={this.state.nowPhase}
+              day={this.state.day} />
+            <div className="nmpty"></div>
+            <MenuModal gameSettings={this.state.gameSettings} roleBreakdown={this.state.roleBreakdown} setSettings={this.setSettings}/>
           </div>
-          <ChatArea/>
+          <ChatArea messages={messages} channel={channel} sendMessage={this.sendMessage} switchChannel={this.switchChannel}
+          chatPermission={this.state.chatPermission} nameIconDict={this.state.nameIconDict}/>
         </div>
         <div className="right-bar">
-          自分の情報
+          <Action actionLog={this.state.actionLog} myRole={this.state.myRole} myName={this.state.userName} alive={this.state.alive}
+          nowPhase={this.state.nowPhase} statusList={this.state.statusList} gameSettings={this.state.gameSettings}
+          completeAction={this.state.completeAction} setCompleteAction={this.setCompleteAction}/>
         </div>
       </div>
     );
