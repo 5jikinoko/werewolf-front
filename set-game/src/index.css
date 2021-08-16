@@ -13,8 +13,6 @@
     margin: 0; 
     padding: 0;
 }
-
-
 .box1 {
   overflow-y: scroll;
   line-height: 34px;
@@ -29,7 +27,6 @@
     margin: 0; 
     padding: 0;
 }
-
 .box2 {
   text-align: center;
   background-color: white;
@@ -84,7 +81,6 @@
 .kbd-navigation .square:focus {
   background: #ddd;
 }
-
 .Buttons {
   text-align: center;
 }*/
